@@ -1,11 +1,11 @@
-package gocut
+package comando
 
 import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/stanislav-zeman/gocut/internal/navigation"
+	"github.com/stanislav-zeman/comando/internal/navigation"
 )
 
 var (

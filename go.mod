@@ -1,4 +1,4 @@
-module github.com/stanislav-zeman/gocut
+module github.com/stanislav-zeman/comando
 
 go 1.24.0
 

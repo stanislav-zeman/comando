@@ -9,12 +9,12 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/stanislav-zeman/gocut/internal/config"
-	"github.com/stanislav-zeman/gocut/internal/gocut"
-	"github.com/stanislav-zeman/gocut/internal/navigation"
+	"github.com/stanislav-zeman/comando/internal/comando"
+	"github.com/stanislav-zeman/comando/internal/config"
+	"github.com/stanislav-zeman/comando/internal/navigation"
 )
 
-const defaultConfigPath = "config/gocut.yaml"
+const defaultConfigPath = "config/comando.yaml"
 
 var (
 	ErrNoCommands      = errors.New("config contains no commands")
@@ -50,14 +50,14 @@ func run() error {
 		return ErrNoCommands
 	}
 
-	model := gocut.NewModel(rootNodes)
+	model := comando.NewModel(rootNodes)
 	program := tea.NewProgram(model, tea.WithAltScreen())
 	finalModel, err := program.Run()
 	if err != nil {
 		return err
 	}
 
-	m, ok := finalModel.(gocut.Model)
+	m, ok := finalModel.(comando.Model)
 	if !ok {
 		return ErrUnexpectedModel
 	}

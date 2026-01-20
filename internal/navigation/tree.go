@@ -1,6 +1,6 @@
 package navigation
 
-import "github.com/stanislav-zeman/gocut/internal/config"
+import "github.com/stanislav-zeman/comando/internal/config"
 
 type TreeNode struct {
 	Name     string
