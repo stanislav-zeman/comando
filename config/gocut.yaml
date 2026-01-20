@@ -1,5 +1,50 @@
+---
 commands:
-  - name: xpanes api
-    command: xpanes api1.standa.dev api2.standa.dev api3.standa.dev
-  - name: xpanes db
-    command: xpanes db1.standa.dev db2.standa.dev
+  - name: Development
+    children:
+      - name: Start local server
+        command: echo "Starting local server..."
+      - name: Run tests
+        command: echo "Running tests..."
+      - name: Build project
+        command: echo "Building project..."
+
+  - name: Servers
+    children:
+      - name: Production
+        children:
+          - name: API Servers
+            command: xpanes api1.standa.dev api2.standa.dev api3.standa.dev
+          - name: DB Servers
+            command: xpanes db1.standa.dev db2.standa.dev
+      - name: Staging
+        children:
+          - name: Connect to staging
+            command: ssh staging.standa.dev
+          - name: View logs
+            command: echo "Viewing staging logs..."
+
+  - name: Databases
+    children:
+      - name: Local
+        command: psql -U postgres
+      - name: Remote
+        children:
+          - name: Production DB
+            command: psql -h prod.db.standa.dev -U admin
+          - name: Staging DB
+            command: psql -h staging.db.standa.dev -U admin
+
+  - name: Quick Commands
+    children:
+      - name: Edit config
+        command: lvim config/gocut.yaml
+      - name: Show help
+        command: echo "Gocut - Tree-based command navigator"
+      - name: List directory
+        command: ls -la
+
+  - name: Panes
+    children:
+      - name: IDK
+        command: xpanes --ssh {cra,sit,ttc}-web{1..2}.moderntv.eu

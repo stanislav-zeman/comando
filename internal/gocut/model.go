@@ -1,47 +1,53 @@
 package gocut
 
 import (
-	"github.com/charmbracelet/bubbles/list"
+	"strings"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/stanislav-zeman/gocut/internal/navigation"
 )
 
 var (
-	appStyle   = lipgloss.NewStyle().Padding(1, 2)
 	titleStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FFFDF5")).
 			Background(lipgloss.Color("#25A065")).
-			Padding(0, 1)
-	statusMessageStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.AdaptiveColor{Light: "#04B575", Dark: "#04B575"}).
-				Render
+			Padding(0, 1).
+			MarginBottom(1)
+
+	breadcrumbStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#888888")).
+			MarginBottom(1)
+
+	itemStyle = lipgloss.NewStyle().
+			PaddingLeft(2)
+
+	selectedItemStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#FFFDF5")).
+				Background(lipgloss.Color("#25A065")).
+				PaddingLeft(2)
+
+	helpStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#888888")).
+			MarginTop(1)
 )
 
 type Model struct {
-	list         list.Model
-	delegateKeys *delegateKeyMap
+	rootNodes       []*navigation.TreeNode
+	currentNodes    []*navigation.TreeNode
+	cursor          int
+	navigationPath  []*navigation.TreeNode
+	selectedCommand string
+	width           int
+	height          int
 }
 
-func NewModel() Model {
-	delegateKeys := newDelegateKeyMap()
-	commands := []list.Item{
-		Command{
-			Name:    "xd",
-			Command: "xpanes {1..4}",
-		},
-		Command{
-			Name:    "help",
-			Command: "lvim help.go",
-		},
-	}
-
-	delegate := newItemDelegate(delegateKeys)
-	commandList := list.New(commands, delegate, 0, 0)
-	commandList.Title = "Commands"
-	commandList.Styles.Title = titleStyle
+func NewModel(rootNodes []*navigation.TreeNode) Model {
 	return Model{
-		list:         commandList,
-		delegateKeys: delegateKeys,
+		rootNodes:      rootNodes,
+		currentNodes:   rootNodes,
+		cursor:         0,
+		navigationPath: []*navigation.TreeNode{},
 	}
 }
 
@@ -52,23 +58,117 @@ func (m Model) Init() tea.Cmd {
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		h, v := appStyle.GetFrameSize()
-		m.list.SetSize(msg.Width-h, msg.Height-v)
+		m.width = msg.Width
+		m.height = msg.Height
 
 	case tea.KeyMsg:
-		if m.list.FilterState() == list.Filtering {
-			break
+		switch msg.String() {
+		case "q", "ctrl+c":
+			// Quit without running command
+			return m, tea.Quit
+
+		case "up", "k":
+			if m.cursor > 0 {
+				m.cursor--
+			}
+
+		case "down", "j":
+			if m.cursor < len(m.currentNodes)-1 {
+				m.cursor++
+			}
+
+		case "enter":
+			if len(m.currentNodes) == 0 {
+				return m, nil
+			}
+
+			selected := m.currentNodes[m.cursor]
+			if selected.IsFolder {
+				// Navigate into folder
+				m.navigationPath = append(m.navigationPath, selected)
+				m.currentNodes = selected.Children
+				m.cursor = 0
+			} else {
+				// Execute command and quit
+				m.selectedCommand = selected.Command
+				return m, tea.Quit
+			}
+
+		case "backspace", "left", "h", "esc":
+			// Navigate back up
+			if len(m.navigationPath) > 0 {
+				// Pop the last folder from navigation path
+				m.navigationPath = m.navigationPath[:len(m.navigationPath)-1]
+
+				// Restore the previous level's nodes
+				if len(m.navigationPath) > 0 {
+					m.currentNodes = m.navigationPath[len(m.navigationPath)-1].Children
+				} else {
+					m.currentNodes = m.rootNodes
+				}
+
+				// Reset cursor to top
+				m.cursor = 0
+			}
 		}
 	}
 
-	newListModel, cmd := m.list.Update(msg)
-	m.list = newListModel
-
-	var cmds []tea.Cmd
-	cmds = append(cmds, cmd)
-	return m, tea.Batch(cmds...)
+	return m, nil
 }
 
 func (m Model) View() string {
-	return appStyle.Render(m.list.View())
+	if len(m.currentNodes) == 0 {
+		return titleStyle.Render("Gocut") + "\n\n" +
+			"No commands available.\n\n" +
+			helpStyle.Render("Press q to quit")
+	}
+
+	var b strings.Builder
+
+	// Title
+	b.WriteString(titleStyle.Render("Gocut"))
+	b.WriteString("\n")
+
+	// Breadcrumb trail
+	breadcrumb := "📁 Home"
+	for _, node := range m.navigationPath {
+		breadcrumb += " > " + node.Name
+	}
+	b.WriteString(breadcrumbStyle.Render(breadcrumb))
+	b.WriteString("\n")
+
+	// List current nodes
+	for i, node := range m.currentNodes {
+		var icon string
+		if node.IsFolder {
+			icon = "📁"
+		} else {
+			icon = "⚡"
+		}
+
+		line := icon + " " + node.Name
+
+		if i == m.cursor {
+			b.WriteString(selectedItemStyle.Render(line))
+		} else {
+			b.WriteString(itemStyle.Render(line))
+		}
+		b.WriteString("\n")
+	}
+
+	// Help text
+	b.WriteString("\n")
+	helpText := "↑/↓: Navigate | ↵: Select"
+	if len(m.navigationPath) > 0 {
+		helpText += " | ←/Backspace: Back"
+	}
+	helpText += " | q: Quit"
+	b.WriteString(helpStyle.Render(helpText))
+
+	return b.String()
+}
+
+// GetSelectedCommand returns the command that was selected for execution
+func (m Model) GetSelectedCommand() string {
+	return m.selectedCommand
 }
